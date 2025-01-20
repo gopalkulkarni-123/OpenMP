@@ -26,6 +26,3 @@ for program in "${programs[@]}"; do
         echo "$i,$elapsed_time" >> "$output_file"
     done
 done
-
-
-# Run this for multiple threads

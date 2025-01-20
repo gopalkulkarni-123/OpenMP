@@ -3,11 +3,12 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Get all CSV files in the current directory
-csv_files = [file for file in os.listdir('.') if file.endswith('_optimized.csv')]
+csv_files = [file for file in os.listdir('.') if file.endswith('_threads.csv')]
+csv_files.sort()
 
 #csv_files = [csv_files[2], csv_files[1], csv_files[3], csv_files[0]] # Custom order for unoptimzed compilation
 
-csv_files = [csv_files[3], csv_files[0], csv_files[2], csv_files[1]] # Custom order for optimized compilation
+#csv_files = [csv_files[3], csv_files[0], csv_files[2], csv_files[1]] # Custom order for optimized compilation
 
 # Initialize a dictionary to store the average time values for each file
 average_time_values = {}
@@ -24,7 +25,8 @@ for file in csv_files:
         all_time_values[file] = df['Elapsed Time'].tolist()
 
 # Define custom labels
-custom_labels = ["Reduction", "Round-robin", "Sequential", "Block-wise"]
+custom_labels = [f'Label {i}' for i in range(1, 9)]
+#custom_labels = ["Reduction", "Round-robin", "Sequential", "Block-wise"]
 
 # Set the figure size (width, height)
 width, height = 15, 9  # Customize these values as needed
@@ -51,4 +53,4 @@ plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='large')
 
 # Show the plot
 plt.tight_layout()
-plt.savefig('time_values_with_averages_optimized.png')
+plt.savefig('time_values_with_different_thread_counts.png')
