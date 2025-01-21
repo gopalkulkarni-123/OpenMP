@@ -53,7 +53,7 @@ plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='large')
 
 # Show the plot
 plt.tight_layout()
-plt.savefig('time_values_with_averags_optimized.png')
+#plt.savefig('time_values_with_averags_optimized.png')
 plt.clf()
 
 #######################################################################################################
@@ -68,14 +68,16 @@ for i in range(0, len(average_time_values)):
     plt.text(i+1, average_time_values[csv_files[0]]/average_time_values[csv_files[i]], f'{average_time_values[csv_files[0]]/average_time_values[csv_files[i]]:.3f}', ha='center', va='bottom', fontsize=10, color='black')
     plt.text(i+1, (average_time_values[csv_files[0]]/((i+1)*average_time_values[csv_files[i]])), f'{(average_time_values[csv_files[0]]/((i+1)*average_time_values[csv_files[i]])):.3f}', ha='center', va='bottom', fontsize=10, color='black')   
 
+plt.scatter([], [], color='blue', label='Speedup')
+plt.scatter([], [], color='green', label='Efficiency')
+
 # Add labels and legend
 plt.xlabel('Number of threads')
 plt.ylabel('Values')
 plt.title('Speedup and efficiency values')
 plt.xticks(ticks=range(1, len(csv_files) + 1), labels=custom_labels, rotation=45, ha='right')
-#plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='large')
+plt.legend(loc='upper left', bbox_to_anchor=(1, 1), fontsize='large')
 
 # Show the plot
 plt.tight_layout()
-#plt.savefig('time_values_with_different_thread_counts.png')
 plt.savefig('speedup_efficiency.png')
