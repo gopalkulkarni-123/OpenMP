@@ -23,9 +23,7 @@ void showGrid(const std::vector<std::vector<int>>& grid){
     //#pragma omp parallel for schedule(runtime)
     for (int i=0; i<ROWS; ++i){
         for(int j=0; j<COLS; ++j){
-            if (grid[i][j] == 0){
-                std::cout << " " << " ";}
-                else {std::cout << "*";} 
+            std::cout << grid[i][j] << " "; 
         }
         std::cout << std::endl;
     }
@@ -53,10 +51,11 @@ int countNeighbours(const std::vector<std::vector<int>>& grid, int x, int y){
 }
 
 // Function to update the grid based on the rules of the Game of Life
-void updateGrid(std::vector<std::vector<int>>& grid, std::vector<std::vector<int>>& newGrid){
+void updateGrid(std::vector<std::vector<int>>& grid){
     int neighbours;
+    std::vector<std::vector<int>> newGrid = grid;
 
-    //#pragma omp parallel for private (neighbours) schedule(runtime) 
+    //#pragma omp parallel for schedule(runtime) 
     for (int i=0; i<ROWS; ++i){
         for (int j=0; j<COLS; ++j){
             neighbours = countNeighbours(grid, i, j);
@@ -74,8 +73,7 @@ void updateGrid(std::vector<std::vector<int>>& grid, std::vector<std::vector<int
         }
     }
 
-    std::swap(grid, newGrid); 
-    //grid = newGrid; // Update the original grid with the new state
+    grid = newGrid; // Update the original grid with the new state
 }
 
 int main(int argc, char* argv[]){
@@ -84,20 +82,19 @@ int main(int argc, char* argv[]){
 
     // Initialize the grid with all cells dead
     std::vector<std::vector<int>> test_grid(ROWS, std::vector<int>(COLS, 0));
-    std::vector<std::vector<int>> buffer_grid(ROWS, std::vector<int>(COLS, 0));
-
+    
     // Set initial live cells
-    test_grid[0][0] = 1;
-    test_grid[0][2] = 1;
-    test_grid[1][2] = 1;
-    test_grid[1][1] = 1;
     test_grid[2][1] = 1;
+    test_grid[2][3] = 1;
+    test_grid[3][2] = 1;
+    test_grid[3][3] = 1;
+    test_grid[4][2] = 1;
 
     // Run the Game of Life for 15 iterations
-    for (int i=0; i<=15; ++i)
+    for (int i =0; i<=15; ++i)
     {
         showGrid(test_grid); // Display the current state of the grid
-        updateGrid(test_grid, buffer_grid); // Update the grid to the next state
+        updateGrid(test_grid); // Update the grid to the next state
         std::cout << "----------------------------------- at " << i << std::endl;
     }
 
