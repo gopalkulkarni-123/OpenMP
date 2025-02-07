@@ -6,15 +6,81 @@
 int ROWS, COLS, NUM_X_CUTS, NUM_Y_CUTS;
 std::vector<int> X_CORDS(0), Y_CORDS(0);
 
-struct Grid {
-    std::vector<int> bottomLeft;
-    std::vector<int> topLeft;
-    std::vector<int> topRight;
-    std::vector<int> bottomRight;
-    int flag;
+struct BlockOfGrid {
+    int xMin;
+    int xMax;
+    int yMin;
+    int yMax;
+    std::vector<std::vector<int>> cells;
+    bool boundary;
+    
+    // Constructor to initialize the BlockOfGrid
+    BlockOfGrid(int x_min, int x_max, int y_min, int y_max) 
+        : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max), boundary(false) {
+        cells.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
+        boundary = (xMin == 0 || xMax == ROWS || yMin == 0 || yMax == COLS);
+    }
 
-    Grid(int xMin, int xMax, int yMin, int yMax) 
-        : bottomLeft({xMin, yMin}), topLeft({xMin, yMax}), topRight({xMax, yMax}), bottomRight({xMax, yMin}), flag(2) {}
+    int countNeighbours(const std::vector<std::vector<int>>& grid, int x, int y) {
+        int count = 0;
+
+        #pragma omp parallel for reduction(+:count) schedule(runtime)
+        for (int di=-1; di<=1; ++di){
+            for (int dj=-1; dj<=1; ++dj){
+                int pos_x = x+di;
+                int pos_y = y+dj;
+                // Check if the neighbouring cell is within bounds and is alive
+                if (boundary == true){
+                    if (pos_x >= 0 && pos_x < ROWS 
+                        && pos_y >= 0 && pos_y < COLS 
+                        && !(di == 0 && dj == 0) 
+                        && grid[pos_x][pos_y] == 1){
+                        count += 1;
+                    }
+                } else{
+                    if (!(di == 0 && dj == 0) 
+                    && grid[pos_x][pos_y] == 1){
+                    count += 1;}
+
+                }
+            }
+        }
+        return count;
+    }
+
+    // Function to update the grid based on the rules of the Game of Life
+    void computeNextState(std::vector<std::vector<int>>& grid){
+        int neighbours;
+        std::vector<std::vector<int>> newCells = cells;
+
+        #pragma omp parallel for schedule(runtime)
+        for (int i=xMin; i<xMax; ++i){
+            for (int j=yMin; j<yMax; ++j){
+                neighbours = countNeighbours(grid, i, j);
+
+                // Apply the rules of the Game of Life
+                if (grid[i][j] == 1 && (neighbours == 2 || neighbours == 3)){
+                    newCells[i - xMin][j - yMin] = 1;
+                }
+                else if (grid[i][j] == 0 && neighbours == 3){
+                    newCells[i - xMin][j - yMin] = 1;
+                }
+                else{
+                    newCells[i - xMin][j - yMin] = 0;
+                }
+            }
+        }
+        cells = newCells; // Update the original grid with the new state
+    }
+
+    void updateGlobalGrid(std::vector<std::vector<int>>& grid) {
+        #pragma omp parallel for schedule(runtime)
+        for (int i = xMin; i < xMax; ++i) {  // Ensures xMax - 1 is included
+            for (int j = yMin; j < yMax; ++j) {  // Ensures yMax - 1 is included
+                grid[i][j] = cells[i - xMin][j - yMin];
+            }
+        }
+    }
 };
 
 void initializeGrid(int argc, char* argv[]) {
@@ -52,60 +118,42 @@ void initializeGrid(int argc, char* argv[]) {
     Y_CORDS.push_back(COLS);
 } 
 
-std::pair <std::vector<Grid>, std::vector<Grid>> classifyGrid(Grid inputGrid){
-    std::vector<Grid> innerGrids;
-    std::vector<Grid> boundaryGrids;
-    for (int i=0; i<=NUM_X_CUTS; ++i){
-        for (int j=0; j<=NUM_Y_CUTS; ++j){
-            Grid blockOfGrid(X_CORDS[i], X_CORDS[i+1], Y_CORDS[j], Y_CORDS[j+1]);
-            if (X_CORDS[i] == 0 || X_CORDS[i+1] == ROWS || Y_CORDS[j] ==0 || Y_CORDS[j+1] == COLS){
-                blockOfGrid.flag = 1;
-                boundaryGrids.push_back(blockOfGrid);}
-            else{
-                blockOfGrid.flag = 0;
-                innerGrids.push_back(blockOfGrid);}
-        } 
+void showGrid(const std::vector<std::vector<int>>& grid) {
+    for (const auto& row : grid) {
+        for (int cell : row) {
+            std::cout << (cell ? "# " : ". ");
+        }
+        std::cout << "\n";
     }
-
-    return {innerGrids, boundaryGrids};
+    std::cout << "----------------\n";
 }
 
 int main(int argc, char* argv[]){
-    //Set the rows and columns
     initializeGrid(argc, argv);
-    Grid mainGrid(0, 0, ROWS, COLS);
-    auto [innerGrids, boundaryGrids] = classifyGrid(mainGrid);    
-    
-    //Display
-    std::cout << "X Coordinates: ";
-    for (const auto& x : X_CORDS) {
-        std::cout << x << " ";
-    }
-    std::cout << std::endl;
+    std::vector<std::vector<int>> mainGrid(ROWS, std::vector<int>(COLS, 0));
 
-    std::cout << "Y Coordinates: ";
-    for (const auto& y : Y_CORDS) {
-        std::cout << y << " ";
-    }
-    std::cout << std::endl;
-
-    std::cout << "Inner Grids:" << std::endl;
-    for (const auto& grid : innerGrids) {
-        std::cout << "Grid corners: "
-                  << "BottomLeft(" << grid.bottomLeft[0] << ", " << grid.bottomLeft[1] << "), "
-                  << "TopLeft(" << grid.topLeft[0] << ", " << grid.topLeft[1] << "), "
-                  << "TopRight(" << grid.topRight[0] << ", " << grid.topRight[1] << "), "
-                  << "BottomRight(" << grid.bottomRight[0] << ", " << grid.bottomRight[1] << ") "
-                  << "Flag: " << grid.flag << std::endl;
+    std::vector<BlockOfGrid> blocks;
+    for (int i = 0; i <= NUM_X_CUTS; ++i) {
+        for (int j = 0; j <= NUM_Y_CUTS; ++j) {
+            blocks.emplace_back(X_CORDS[i], X_CORDS[i+1], Y_CORDS[j], Y_CORDS[j+1]);
+        }
     }
 
-    std::cout << "Boundary Grids:" << std::endl;
-    for (const auto& grid : boundaryGrids) {
-        std::cout << "Grid corners: "
-                  << "BottomLeft(" << grid.bottomLeft[0] << ", " << grid.bottomLeft[1] << "), "
-                  << "TopLeft(" << grid.topLeft[0] << ", " << grid.topLeft[1] << "), "
-                  << "TopRight(" << grid.topRight[0] << ", " << grid.topRight[1] << "), "
-                  << "BottomRight(" << grid.bottomRight[0] << ", " << grid.bottomRight[1] << ") "
-                  << "Flag: " << grid.flag << std::endl;
+    mainGrid[2][3] = mainGrid[3][4] = mainGrid[4][2] = mainGrid[4][3] = mainGrid[4][4] = 1;
+
+    for (int step = 0; step < 20; ++step) {
+        std::cout << "Generation " << step << ":\n";
+        showGrid(mainGrid);
+        
+        #pragma omp parallel for schedule(runtime)
+        for (size_t i = 0; i < blocks.size(); ++i) {
+            blocks[i].computeNextState(mainGrid);
+        }
+        
+        #pragma omp parallel for schedule(runtime)
+        for (size_t i = 0; i < blocks.size(); ++i) {
+            blocks[i].updateGlobalGrid(mainGrid);
+        }
     }
+    return 0;
 }

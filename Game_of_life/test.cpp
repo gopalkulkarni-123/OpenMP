@@ -4,7 +4,7 @@
 #include <omp.h>
 
 int ROWS, COLS, NUM_X_CUTS, NUM_Y_CUTS;
-std::vector<int> X_CORDS(0), Y_CORDS(0);
+std::vector<int> X_CORDS, Y_CORDS;
 
 struct BlockOfGrid {
     int xMin;
@@ -12,71 +12,55 @@ struct BlockOfGrid {
     int yMin;
     int yMax;
     std::vector<std::vector<int>> cells;
-    bool boundary;
     
-    // Constructor to initialize the BlockOfGrid
     BlockOfGrid(int x_min, int x_max, int y_min, int y_max) 
-        : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max), boundary(false) {
+        : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max) {
         cells.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
-        boundary = (xMin == 0 || xMax == ROWS || yMin == 0 || yMax == COLS);
     }
 
-    int countNeighbours(const std::vector<std::vector<int>>& grid, int x, int y) {
+    int countNeighbours(const std::vector<std::vector<int>>& grid, int x, int y){
         int count = 0;
-
-        #pragma omp parallel for reduction(+:count) schedule(runtime)
-        for (int di=-1; di<=1; ++di){
-            for (int dj=-1; dj<=1; ++dj){
-                int pos_x = x+di;
-                int pos_y = y+dj;
-                // Check if the neighbouring cell is within bounds and is alive
-                if (boundary == true){
-                    if (pos_x >= 0 && pos_x < ROWS 
-                        && pos_y >= 0 && pos_y < COLS 
-                        && !(di == 0 && dj == 0) 
-                        && grid[pos_x][pos_y] == 1){
-                        count += 1;
-                    }
-                } else{
-                    if (!(di == 0 && dj == 0) 
-                    && grid[pos_x][pos_y] == 1){
-                    count += 1;}
-
+        #pragma omp parallel for collapse(2) reduction(+:count)
+        for (int di = -1; di <= 1; ++di){
+            for (int dj = -1; dj <= 1; ++dj){
+                if (di == 0 && dj == 0) continue;
+                int pos_x = x + di;
+                int pos_y = y + dj;
+                if (pos_x >= 0 && pos_x < ROWS && pos_y >= 0 && pos_y < COLS) {
+                    count += grid[pos_x][pos_y];
                 }
             }
         }
         return count;
     }
 
-    // Function to update the grid based on the rules of the Game of Life
-    void computeNextState(std::vector<std::vector<int>>& grid){
-        int neighbours;
+    void computeNextState(const std::vector<std::vector<int>>& grid) {
         std::vector<std::vector<int>> newCells = cells;
-
-        #pragma omp parallel for schedule(runtime)
-        for (int i=xMin; i<xMax; ++i){
-            for (int j=yMin; j<yMax; ++j){
-                neighbours = countNeighbours(grid, i, j);
-
-                // Apply the rules of the Game of Life
+        #pragma omp parallel for collapse(2)
+        for (int i = xMin; i < xMax; ++i){
+            for (int j = yMin; j < yMax; ++j){
+                int neighbours = countNeighbours(grid, i, j);
+                int local_x = i - xMin;
+                int local_y = j - yMin;
+                
                 if (grid[i][j] == 1 && (neighbours == 2 || neighbours == 3)){
-                    newCells[i - xMin][j - yMin] = 1;
+                    newCells[local_x][local_y] = 1;
                 }
                 else if (grid[i][j] == 0 && neighbours == 3){
-                    newCells[i - xMin][j - yMin] = 1;
+                    newCells[local_x][local_y] = 1;
                 }
                 else{
-                    newCells[i - xMin][j - yMin] = 0;
+                    newCells[local_x][local_y] = 0;
                 }
             }
         }
-        cells = newCells; // Update the original grid with the new state
+        cells = newCells;
     }
 
     void updateGlobalGrid(std::vector<std::vector<int>>& grid) {
-        #pragma omp parallel for schedule(runtime)
-        for (int i = xMin; i < xMax; ++i) {  // Ensures xMax - 1 is included
-            for (int j = yMin; j < yMax; ++j) {  // Ensures yMax - 1 is included
+        #pragma omp parallel for collapse(2)
+        for (int i = xMin; i < xMax; ++i){
+            for (int j = yMin; j < yMax; ++j){
                 grid[i][j] = cells[i - xMin][j - yMin];
             }
         }
@@ -84,16 +68,12 @@ struct BlockOfGrid {
 };
 
 void initializeGrid(int argc, char* argv[]) {
-    if (argc < 5) { // At least 4 values needed before coordinates
-        std::cerr << "Usage: " << argv[0] << " <rows> <cols> <num_x_cords> <num_y_cords> <X1> ... <Xn> <Y1> ... <Ym>" << std::endl;
+    if (argc < 5) {
+        std::cerr << "Usage: " << argv[0] << " <rows> <cols> <num_x_cuts> <num_y_cuts> <X1> ... <Xn> <Y1> ... <Ym>" << std::endl;
         exit(1);
     }
-
-    // Read grid dimensions
     ROWS = std::atoi(argv[1]);
     COLS = std::atoi(argv[2]);
-
-    // Read number of X and Y coordinates
     NUM_X_CUTS = std::atoi(argv[3]);
     NUM_Y_CUTS = std::atoi(argv[4]);
 
@@ -103,14 +83,12 @@ void initializeGrid(int argc, char* argv[]) {
         exit(1);
     }
 
-    // Read X coordinates
     X_CORDS.push_back(0);
     for (int i = 0; i < NUM_X_CUTS; i++) {
         X_CORDS.push_back(std::atoi(argv[i+5]));
     }
     X_CORDS.push_back(ROWS);
 
-    // Read Y coordinates
     Y_CORDS.push_back(0);
     for (int i = 0; i < NUM_Y_CUTS; i++) {
         Y_CORDS.push_back(std::atoi(argv[i+5+NUM_X_CUTS]));
@@ -118,7 +96,7 @@ void initializeGrid(int argc, char* argv[]) {
     Y_CORDS.push_back(COLS);
 } 
 
-void showGrid(const std::vector<std::vector<int>>& grid) {
+void printGrid(const std::vector<std::vector<int>>& grid) {
     for (const auto& row : grid) {
         for (int cell : row) {
             std::cout << (cell ? "# " : ". ");
@@ -128,29 +106,28 @@ void showGrid(const std::vector<std::vector<int>>& grid) {
     std::cout << "----------------\n";
 }
 
-int main(int argc, char* argv[]){
+int main(int argc, char* argv[]) {
     initializeGrid(argc, argv);
     std::vector<std::vector<int>> mainGrid(ROWS, std::vector<int>(COLS, 0));
-
+    
     std::vector<BlockOfGrid> blocks;
     for (int i = 0; i <= NUM_X_CUTS; ++i) {
         for (int j = 0; j <= NUM_Y_CUTS; ++j) {
             blocks.emplace_back(X_CORDS[i], X_CORDS[i+1], Y_CORDS[j], Y_CORDS[j+1]);
         }
     }
-
     mainGrid[2][3] = mainGrid[3][4] = mainGrid[4][2] = mainGrid[4][3] = mainGrid[4][4] = 1;
-
-    for (int step = 0; step < 20; ++step) {
+    
+    for (int step = 0; step < 10; ++step) {
         std::cout << "Generation " << step << ":\n";
-        showGrid(mainGrid);
+        printGrid(mainGrid);
         
-        #pragma omp parallel for schedule(runtime)
+        #pragma omp parallel for
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].computeNextState(mainGrid);
         }
         
-        #pragma omp parallel for schedule(runtime)
+        #pragma omp parallel for
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].updateGlobalGrid(mainGrid);
         }
