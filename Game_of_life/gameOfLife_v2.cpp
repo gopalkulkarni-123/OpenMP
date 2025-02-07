@@ -3,9 +3,11 @@
 #include <cstdlib>
 #include <omp.h>
 
+// Global variables for grid dimensions and cut coordinates
 int ROWS, COLS, NUM_X_CUTS, NUM_Y_CUTS;
 std::vector<int> X_CORDS(0), Y_CORDS(0);
 
+// Structure to represent a block of the grid
 struct BlockOfGrid {
     int xMin;
     int xMax;
@@ -21,6 +23,7 @@ struct BlockOfGrid {
         boundary = (xMin == 0 || xMax == ROWS || yMin == 0 || yMax == COLS);
     }
 
+    // Function to count the number of alive neighbours for a given cell
     int countNeighbours(const std::vector<std::vector<int>>& grid, int x, int y) {
         int count = 0;
 
@@ -73,6 +76,7 @@ struct BlockOfGrid {
         cells = newCells; // Update the original grid with the new state
     }
 
+    // Function to update the global grid with the current block's state
     void updateGlobalGrid(std::vector<std::vector<int>>& grid) {
         #pragma omp parallel for schedule(runtime)
         for (int i = xMin; i < xMax; ++i) {  // Ensures xMax - 1 is included
@@ -83,6 +87,7 @@ struct BlockOfGrid {
     }
 };
 
+// Function to initialize the grid and read input parameters
 void initializeGrid(int argc, char* argv[]) {
     if (argc < 5) { // At least 4 values needed before coordinates
         std::cerr << "Usage: " << argv[0] << " <rows> <cols> <num_x_cords> <num_y_cords> <X1> ... <Xn> <Y1> ... <Ym>" << std::endl;
@@ -118,6 +123,7 @@ void initializeGrid(int argc, char* argv[]) {
     Y_CORDS.push_back(COLS);
 } 
 
+// Function to display the grid
 void showGrid(const std::vector<std::vector<int>>& grid) {
     for (const auto& row : grid) {
         for (int cell : row) {
@@ -132,6 +138,7 @@ int main(int argc, char* argv[]){
     initializeGrid(argc, argv);
     std::vector<std::vector<int>> mainGrid(ROWS, std::vector<int>(COLS, 0));
 
+    // Create blocks of the grid based on the cut coordinates
     std::vector<BlockOfGrid> blocks;
     for (int i = 0; i <= NUM_X_CUTS; ++i) {
         for (int j = 0; j <= NUM_Y_CUTS; ++j) {
@@ -139,17 +146,21 @@ int main(int argc, char* argv[]){
         }
     }
 
+    // Initialize a glider pattern in the grid
     mainGrid[2][3] = mainGrid[3][4] = mainGrid[4][2] = mainGrid[4][3] = mainGrid[4][4] = 1;
 
+    // Run the Game of Life for 20 generations
     for (int step = 0; step < 20; ++step) {
         std::cout << "Generation " << step << ":\n";
         showGrid(mainGrid);
         
+        // Compute the next state for each block
         #pragma omp parallel for schedule(runtime)
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].computeNextState(mainGrid);
         }
         
+        // Update the global grid with the new state of each block
         #pragma omp parallel for schedule(runtime)
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].updateGlobalGrid(mainGrid);
