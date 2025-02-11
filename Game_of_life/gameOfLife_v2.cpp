@@ -13,13 +13,13 @@ struct BlockOfGrid {
     int xMax;
     int yMin;
     int yMax;
-    std::vector<std::vector<int>> cells;
+    std::vector<std::vector<int>> localGrid;
     bool boundary;
     
     // Constructor to initialize the BlockOfGrid
     BlockOfGrid(int x_min, int x_max, int y_min, int y_max) 
         : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max), boundary(false) {
-        cells.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
+        localGrid.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
         boundary = (xMin == 0 || xMax == ROWS || yMin == 0 || yMax == COLS);
     }
 
@@ -54,7 +54,6 @@ struct BlockOfGrid {
     // Function to update the grid based on the rules of the Game of Life
     void computeNextState(std::vector<std::vector<int>>& grid){
         int neighbours;
-        std::vector<std::vector<int>> newCells = cells;
 
         #pragma omp parallel for schedule(runtime)
         for (int i=xMin; i<xMax; ++i){
@@ -63,17 +62,16 @@ struct BlockOfGrid {
 
                 // Apply the rules of the Game of Life
                 if (grid[i][j] == 1 && (neighbours == 2 || neighbours == 3)){
-                    newCells[i - xMin][j - yMin] = 1;
+                    localGrid[i - xMin][j - yMin] = 1;
                 }
                 else if (grid[i][j] == 0 && neighbours == 3){
-                    newCells[i - xMin][j - yMin] = 1;
+                    localGrid[i - xMin][j - yMin] = 1;
                 }
                 else{
-                    newCells[i - xMin][j - yMin] = 0;
+                    localGrid[i - xMin][j - yMin] = 0;
                 }
             }
         }
-        cells = newCells; // Update the original grid with the new state
     }
 
     // Function to update the global grid with the current block's state
@@ -81,7 +79,7 @@ struct BlockOfGrid {
         #pragma omp parallel for schedule(runtime)
         for (int i = xMin; i < xMax; ++i) {  // Ensures xMax - 1 is included
             for (int j = yMin; j < yMax; ++j) {  // Ensures yMax - 1 is included
-                grid[i][j] = cells[i - xMin][j - yMin];
+                grid[i][j] = localGrid[i - xMin][j - yMin];
             }
         }
     }
