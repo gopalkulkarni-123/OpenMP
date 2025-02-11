@@ -145,7 +145,7 @@ int main(int argc, char* argv[]){
     }
 
     // Initialize a glider pattern in the grid
-    mainGrid[2][3] = mainGrid[3][4] = mainGrid[4][2] = mainGrid[4][3] = mainGrid[4][4] = 1;
+    mainGrid[10][2] = mainGrid[11][4] = mainGrid[12][1] = mainGrid[12][2] = mainGrid[12][5] = mainGrid[12][6] = mainGrid[12][7] = 1;
 
     // Run the Game of Life for 20 generations
     for (int step = 0; step < 20; ++step) {
