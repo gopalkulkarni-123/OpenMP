@@ -18,53 +18,36 @@ struct BlockOfGrid {
     
     // Constructor to initialize the BlockOfGrid
     BlockOfGrid(int x_min, int x_max, int y_min, int y_max) 
-        : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max), boundary(false) {
+        : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max) {
         localGrid.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
         boundary = (xMin == 0 || xMax == ROWS || yMin == 0 || yMax == COLS);
     }
 
-    // Function to count the number of alive neighbours for a given cell
-    int countNeighbours(const std::vector<std::vector<int>>& grid, int x, int y) {
-        int count = 0;
-
-        #pragma omp parallel for reduction(+:count) schedule(runtime)
-        for (int di=-1; di<=1; ++di){
-            for (int dj=-1; dj<=1; ++dj){
-                int pos_x = x+di;
-                int pos_y = y+dj;
-                // Check if the neighbouring cell is within bounds and is alive
-                if (boundary == true){
-                    if (pos_x >= 0 && pos_x < ROWS 
-                        && pos_y >= 0 && pos_y < COLS 
-                        && !(di == 0 && dj == 0) 
-                        && grid[pos_x][pos_y] == 1){
-                        count += 1;
-                    }
-                } else{
-                    if (!(di == 0 && dj == 0) 
-                    && grid[pos_x][pos_y] == 1){
-                    count += 1;}
-
-                }
-            }
-        }
-        return count;
-    }
-
     // Function to update the grid based on the rules of the Game of Life
-    void computeNextState(std::vector<std::vector<int>>& grid){
-        int neighbours;
+    void computeNextStateInner(std::vector<std::vector<int>>& grid){
 
-        #pragma omp parallel for schedule(runtime)
+        //#pragma omp parallel for schedule(runtime)
         for (int i=xMin; i<xMax; ++i){
             for (int j=yMin; j<yMax; ++j){
-                neighbours = countNeighbours(grid, i, j);
+                //Counts the neighbours and stores in count
+                int count = 0;
+                for (int di=-1; di<=1; ++di){
+                    for (int dj=-1; dj<=1; ++dj){
+                        int pos_x = i+di;
+                        int pos_y = j+dj;
+                        // Only checks if the neighbouring cell is alive or not
+                        if (!(di == 0 && dj == 0) 
+                            && grid[pos_x][pos_y] == 1){
+                            count += 1;
+                            }
+                        }
+                    }
 
                 // Apply the rules of the Game of Life
-                if (grid[i][j] == 1 && (neighbours == 2 || neighbours == 3)){
+                if (grid[i][j] == 1 && (count == 2 || count == 3)){
                     localGrid[i - xMin][j - yMin] = 1;
                 }
-                else if (grid[i][j] == 0 && neighbours == 3){
+                else if (grid[i][j] == 0 && count == 3){
                     localGrid[i - xMin][j - yMin] = 1;
                 }
                 else{
@@ -74,9 +57,52 @@ struct BlockOfGrid {
         }
     }
 
+    void computeNextStateBoundary(std::vector<std::vector<int>>& grid){
+
+        //#pragma omp parallel for schedule(runtime)
+        for (int i=xMin; i<xMax; ++i){
+            for (int j=yMin; j<yMax; ++j){
+                //Counts the neighbours and stores in count
+                int count = 0;
+                for (int di=-1; di<=1; ++di){
+                    for (int dj=-1; dj<=1; ++dj){
+                        int pos_x = i+di;
+                        int pos_y = j+dj;
+                        // Check if the neighbouring cell is within bounds and is alive
+                        if (pos_x >= 0 && pos_x < ROWS 
+                            && pos_y >= 0 && pos_y < COLS 
+                            && !(di == 0 && dj == 0) 
+                            && grid[pos_x][pos_y] == 1){
+                            count += 1;
+                            }
+                        }
+                    }
+
+                // Apply the rules of the Game of Life
+                if (grid[i][j] == 1 && (count == 2 || count == 3)){
+                    localGrid[i - xMin][j - yMin] = 1;
+                }
+                else if (grid[i][j] == 0 && count == 3){
+                    localGrid[i - xMin][j - yMin] = 1;
+                }
+                else{
+                    localGrid[i - xMin][j - yMin] = 0;
+                }
+            }
+        }
+    }
+
+    void computeNextState(std::vector<std::vector<int>>& grid){
+        if(boundary)
+        {
+            computeNextStateBoundary(grid);
+        }
+        else{computeNextStateInner(grid);}
+    }
+        
     // Function to update the global grid with the current block's state
     void updateGlobalGrid(std::vector<std::vector<int>>& grid) {
-        #pragma omp parallel for schedule(runtime)
+        //#pragma omp parallel for schedule(runtime)
         for (int i = xMin; i < xMax; ++i) {  // Ensures xMax - 1 is included
             for (int j = yMin; j < yMax; ++j) {  // Ensures yMax - 1 is included
                 grid[i][j] = localGrid[i - xMin][j - yMin];
@@ -144,11 +170,50 @@ int main(int argc, char* argv[]){
         }
     }
 
-    // Initialize a glider pattern in the grid
-    mainGrid[10][2] = mainGrid[11][4] = mainGrid[12][1] = mainGrid[12][2] = mainGrid[12][5] = mainGrid[12][6] = mainGrid[12][7] = 1;
+    // Explosion
+    //mainGrid[10][2] = mainGrid[11][4] = mainGrid[12][1] = mainGrid[12][2] = mainGrid[12][5] = mainGrid[12][6] = mainGrid[12][7] = 1;
+
+    // Oscillator
+    //mainGrid[10][10] = mainGrid[10][11] = mainGrid[10][12] = 1;
+    
+    // Glider
+    //mainGrid[0][1] = 1; mainGrid[1][2] = 1; mainGrid[2][2] = 1; mainGrid[2][1] = 1; mainGrid[2][0] = 1;
+
+    // Gliders moving in different directions
+
+    // Standard Right-Down Glider (↘)
+    mainGrid[0][1] = 1; mainGrid[1][2] = 1; mainGrid[2][2] = 1; mainGrid[2][1] = 1; mainGrid[2][0] = 1;
+
+    // Left-Down Glider (↙)
+    mainGrid[10][8] = 1; mainGrid[9][9] = 1; mainGrid[8][9] = 1; mainGrid[8][8] = 1; mainGrid[8][7] = 1;
+
+    // Right-Up Glider (↗)
+    mainGrid[15][5] = 1; mainGrid[16][4] = 1; mainGrid[17][4] = 1; mainGrid[17][5] = 1; mainGrid[17][6] = 1;
+
+    // Left-Up Glider (↖)
+    mainGrid[25][20] = 1; mainGrid[24][21] = 1; mainGrid[23][21] = 1; mainGrid[23][20] = 1; mainGrid[23][19] = 1;
+
+    // Right Glider (→)
+    mainGrid[5][30] = 1; mainGrid[6][30] = 1; mainGrid[7][30] = 1; mainGrid[7][29] = 1; mainGrid[6][28] = 1;
+
+    // Left Glider (←)
+    mainGrid[12][50] = 1; mainGrid[11][50] = 1; mainGrid[10][50] = 1; mainGrid[10][51] = 1; mainGrid[11][52] = 1;
+
+    // Upward Glider (↑)
+    mainGrid[35][10] = 1; mainGrid[35][9] = 1; mainGrid[35][8] = 1; mainGrid[34][8] = 1; mainGrid[33][9] = 1;
+
+    // Downward Glider (↓)
+    mainGrid[40][20] = 1; mainGrid[40][21] = 1; mainGrid[40][22] = 1; mainGrid[41][22] = 1; mainGrid[42][21] = 1;
+
+    // Random Glider 1 (↘)
+    mainGrid[50][5] = 1; mainGrid[51][6] = 1; mainGrid[52][6] = 1; mainGrid[52][5] = 1; mainGrid[52][4] = 1;
+
+    // Random Glider 2 (↙)
+    mainGrid[60][30] = 1; mainGrid[59][31] = 1; mainGrid[58][31] = 1; mainGrid[58][30] = 1; mainGrid[58][29] = 1;
+
 
     // Run the Game of Life for 20 generations
-    for (int step = 0; step < 20; ++step) {
+    for (int step = 0; step < 100; ++step) {
         std::cout << "Generation " << step << ":\n";
         showGrid(mainGrid);
         
@@ -157,8 +222,6 @@ int main(int argc, char* argv[]){
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].computeNextState(mainGrid);
         }
-        
-        // Update the global grid with the new state of each block
         #pragma omp parallel for schedule(runtime)
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].updateGlobalGrid(mainGrid);
