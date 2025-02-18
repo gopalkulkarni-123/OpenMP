@@ -18,18 +18,19 @@ struct BlockOfGrid {
     
     // Constructor with built-in boundary trimming
     BlockOfGrid(int x_min, int x_max, int y_min, int y_max) 
-        : xMin(std::max(1, x_min)), 
-          xMax(std::min(ROWS - 1, x_max)), 
-          yMin(std::max(1, y_min)), 
-          yMax(std::min(COLS - 1, y_max)) {
+        : xMin(x_min), 
+          xMax(x_max), 
+          yMin(y_min), 
+          yMax(y_max) {
 
         localGrid.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
-        boundary = (x_min == 0 || x_max == ROWS || y_min == 0 || y_max == COLS);
+        //boundary = (x_min == 0 || x_max == ROWS || y_min == 0 || y_max == COLS);
     }
 
-    void computeNextState(const std::vector<std::vector<int>>& grid) {
-        for (int i = xMin; i < xMax; ++i) {
-            for (int j = yMin; j < yMax; ++j) {
+    void computeNextStateAll(const std::vector<std::vector<int>>& grid) {
+        //Computes the next state for all the blocks including the boundary blocks. For boundary blocks, it trims the edges
+        for (int i = std::max(1, xMin); i < std::min(xMax, ROWS - 1); ++i) {
+            for (int j = std::max(1, yMin); j < std::min(yMax, COLS -1); ++j) {
                 // Unrolled neighbor count
                 int count = 0;
                 count += grid[i - 1][j - 1]; count += grid[i - 1][j]; count += grid[i - 1][j + 1];
@@ -41,8 +42,37 @@ struct BlockOfGrid {
                                                 (grid[i][j] == 0 && count == 3);
             }
         }
+        computeNextStateEdgeCells();
     }
-           
+
+    void computeNextStateEdgeCells() {
+        if (xMin > 0 && xMax < ROWS && yMin > 0 && yMax < COLS) {
+            return; // Block has no edge cells, exit early.
+        }
+
+        // Set edge cells to 0 only if the block touches a boundary
+        if (xMin == 0) {  // Top boundary
+            for (int j = yMin; j < yMax; ++j) {
+                localGrid[0][j - yMin] = 0;
+            }
+        }
+        if (xMax == ROWS) {  // Bottom boundary
+            for (int j = yMin; j < yMax; ++j) {
+                localGrid[xMax - xMin - 1][j - yMin] = 0;
+            }
+        }
+        if (yMin == 0) {  // Left boundary
+            for (int i = xMin; i < xMax; ++i) {
+                localGrid[i - xMin][0] = 0;
+            }
+        }
+        if (yMax == COLS) {  // Right boundary
+            for (int i = xMin; i < xMax; ++i) {
+                localGrid[i - xMin][yMax - yMin - 1] = 0;
+            }
+        }
+    }
+          
     // Function to update the global grid with the current block's state
     void updateGlobalGrid(std::vector<std::vector<int>>& grid) {
         //#pragma omp parallel for schedule(runtime)
@@ -156,15 +186,16 @@ int main(int argc, char* argv[]){
 
 
     // Run the Game of Life for 20 generations
-    for (int step = 0; step < 100; ++step) {
+    for (int step = 0; step < 200; ++step) {
         std::cout << "Generation " << step << ":\n";
         showGrid(mainGrid);
         
         // Compute the next state for each block
         #pragma omp parallel for schedule(runtime)
         for (size_t i = 0; i < blocks.size(); ++i) {
-            blocks[i].computeNextState(mainGrid);
+            blocks[i].computeNextStateAll(mainGrid);
         }
+
         #pragma omp parallel for schedule(runtime)
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].updateGlobalGrid(mainGrid);
