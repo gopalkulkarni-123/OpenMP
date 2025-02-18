@@ -46,29 +46,30 @@ struct BlockOfGrid {
     }
 
     void computeNextStateEdgeCells() {
+        // Exit early if the block has no edge cells (i.e., it's entirely internal)
         if (xMin > 0 && xMax < ROWS && yMin > 0 && yMax < COLS) {
-            return; // Block has no edge cells, exit early.
+            return;
         }
 
         // Set edge cells to 0 only if the block touches a boundary
         if (xMin == 0) {  // Top boundary
             for (int j = yMin; j < yMax; ++j) {
-                localGrid[0][j - yMin] = 0;
+                localGrid[0][j - yMin] = 0; // Accessing the top row of localGrid
             }
         }
         if (xMax == ROWS) {  // Bottom boundary
             for (int j = yMin; j < yMax; ++j) {
-                localGrid[xMax - xMin - 1][j - yMin] = 0;
+                localGrid[xMax - xMin - 1][j - yMin] = 0; // Accessing the bottom row of localGrid
             }
         }
         if (yMin == 0) {  // Left boundary
             for (int i = xMin; i < xMax; ++i) {
-                localGrid[i - xMin][0] = 0;
+                localGrid[i - xMin][0] = 0; // Accessing the left column of localGrid
             }
         }
         if (yMax == COLS) {  // Right boundary
             for (int i = xMin; i < xMax; ++i) {
-                localGrid[i - xMin][yMax - yMin - 1] = 0;
+                localGrid[i - xMin][yMax - yMin - 1] = 0; // Accessing the right column of localGrid
             }
         }
     }
