@@ -16,90 +16,33 @@ struct BlockOfGrid {
     std::vector<std::vector<int>> localGrid;
     bool boundary;
     
-    // Constructor to initialize the BlockOfGrid
+    // Constructor with built-in boundary trimming
     BlockOfGrid(int x_min, int x_max, int y_min, int y_max) 
-        : xMin(x_min), xMax(x_max), yMin(y_min), yMax(y_max) {
+        : xMin(std::max(1, x_min)), 
+          xMax(std::min(ROWS - 1, x_max)), 
+          yMin(std::max(1, y_min)), 
+          yMax(std::min(COLS - 1, y_max)) {
+
         localGrid.resize(xMax - xMin, std::vector<int>(yMax - yMin, 0));
-        boundary = (xMin == 0 || xMax == ROWS || yMin == 0 || yMax == COLS);
+        boundary = (x_min == 0 || x_max == ROWS || y_min == 0 || y_max == COLS);
     }
 
-    // Function to update the grid based on the rules of the Game of Life
-    void computeNextStateInner(std::vector<std::vector<int>>& grid){
-
-        //#pragma omp parallel for schedule(runtime)
-        for (int i=xMin; i<xMax; ++i){
-            for (int j=yMin; j<yMax; ++j){
-                //Counts the neighbours and stores in count
+    void computeNextState(const std::vector<std::vector<int>>& grid) {
+        for (int i = xMin; i < xMax; ++i) {
+            for (int j = yMin; j < yMax; ++j) {
+                // Unrolled neighbor count
                 int count = 0;
-                for (int di=-1; di<=1; ++di){
-                    for (int dj=-1; dj<=1; ++dj){
-                        int pos_x = i+di;
-                        int pos_y = j+dj;
-                        // Only checks if the neighbouring cell is alive or not
-                        if (!(di == 0 && dj == 0) 
-                            && grid[pos_x][pos_y] == 1){
-                            count += 1;
-                            }
-                        }
-                    }
+                count += grid[i - 1][j - 1]; count += grid[i - 1][j]; count += grid[i - 1][j + 1];
+                count += grid[i][j - 1];                             count += grid[i][j + 1];
+                count += grid[i + 1][j - 1]; count += grid[i + 1][j]; count += grid[i + 1][j + 1];
 
-                // Apply the rules of the Game of Life
-                if (grid[i][j] == 1 && (count == 2 || count == 3)){
-                    localGrid[i - xMin][j - yMin] = 1;
-                }
-                else if (grid[i][j] == 0 && count == 3){
-                    localGrid[i - xMin][j - yMin] = 1;
-                }
-                else{
-                    localGrid[i - xMin][j - yMin] = 0;
-                }
+                // Apply the Game of Life rules
+                localGrid[i - xMin][j - yMin] = (grid[i][j] == 1 && (count == 2 || count == 3)) ||
+                                                (grid[i][j] == 0 && count == 3);
             }
         }
     }
-
-    void computeNextStateBoundary(std::vector<std::vector<int>>& grid){
-
-        //#pragma omp parallel for schedule(runtime)
-        for (int i=xMin; i<xMax; ++i){
-            for (int j=yMin; j<yMax; ++j){
-                //Counts the neighbours and stores in count
-                int count = 0;
-                for (int di=-1; di<=1; ++di){
-                    for (int dj=-1; dj<=1; ++dj){
-                        int pos_x = i+di;
-                        int pos_y = j+dj;
-                        // Check if the neighbouring cell is within bounds and is alive
-                        if (pos_x >= 0 && pos_x < ROWS 
-                            && pos_y >= 0 && pos_y < COLS 
-                            && !(di == 0 && dj == 0) 
-                            && grid[pos_x][pos_y] == 1){
-                            count += 1;
-                            }
-                        }
-                    }
-
-                // Apply the rules of the Game of Life
-                if (grid[i][j] == 1 && (count == 2 || count == 3)){
-                    localGrid[i - xMin][j - yMin] = 1;
-                }
-                else if (grid[i][j] == 0 && count == 3){
-                    localGrid[i - xMin][j - yMin] = 1;
-                }
-                else{
-                    localGrid[i - xMin][j - yMin] = 0;
-                }
-            }
-        }
-    }
-
-    void computeNextState(std::vector<std::vector<int>>& grid){
-        if(boundary)
-        {
-            computeNextStateBoundary(grid);
-        }
-        else{computeNextStateInner(grid);}
-    }
-        
+           
     // Function to update the global grid with the current block's state
     void updateGlobalGrid(std::vector<std::vector<int>>& grid) {
         //#pragma omp parallel for schedule(runtime)
