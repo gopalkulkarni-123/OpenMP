@@ -15,7 +15,7 @@ struct BlockOfGrid {
     int xMax;
     int yMin;
     int yMax;
-    float alpha = 0.50;
+    float alpha = 0.2;
     float dx = 1.0;
     float dy = 1.0;
     float dt = 0.1;
@@ -150,8 +150,9 @@ int main(int argc, char* argv[]){
     }
 
     // Run the Game of Life for 20 generations
+    //#pragma omp parallel for schedule(runtime)
     for (int step = 0; step < 10000; ++step) {
-        std::cout << "Generation " << step << ":\n";
+        std::cout << "Time step" << step << ":\n";
         showGrid(mainGrid);
         
         // Compute the next state for each block

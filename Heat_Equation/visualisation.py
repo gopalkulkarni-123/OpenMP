@@ -7,7 +7,7 @@ def read_data(file_path):
         data = []
         current_generation = []
         for line in file:
-            if line.startswith("Generation"):
+            if line.startswith("Time step"):
                 if current_generation:
                     data.append(np.array(current_generation))
                     current_generation = []
@@ -29,14 +29,14 @@ def animate_heatmap(data, interval=100):
 
     def update(frame):
         cax.set_array(data[frame])
-        ax.set_title(f'Generation {frame}')
+        ax.set_title(f'Time {round(frame*0.1, 3)}'+ 's')
         return cax,
 
     ani = animation.FuncAnimation(fig, update, frames=len(data), interval=interval, blit=False, repeat=False)
     plt.show()
 
 if __name__ == "__main__":
-    file_path = 'test_reference.txt'
+    file_path = 'test_output.txt'
     data = read_data(file_path)
 
     # Sample 100 data points evenly from the data
