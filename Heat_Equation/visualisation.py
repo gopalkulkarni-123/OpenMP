@@ -51,11 +51,11 @@ if __name__ == "__main__":
         data = data[::len(data)//1000]
 
     # Save specific frames
-    save_frame(data, 0, 'frame_0.png')
+    save_frame(data, 0, 'Results/frame_0.png')
     middle_frame_1 = len(data) // 2
     middle_frame_2 = middle_frame_1 + 1
-    save_frame(data, middle_frame_1, f'frame_{middle_frame_1}.png')
-    save_frame(data, middle_frame_2, f'frame_{middle_frame_2}.png')
-    save_frame(data, len(data) - 1, f'frame_{len(data) - 1}.png')
+    save_frame(data, middle_frame_1, f'Results/frame_{middle_frame_1}.png')
+    save_frame(data, middle_frame_2, f'Results/frame_{middle_frame_2}.png')
+    save_frame(data, len(data) - 1, f'Results/frame_{len(data) - 1}.png')
 
     animate_heatmap(data, interval=25)  # Set the interval to 25 milliseconds to speed up by 100x

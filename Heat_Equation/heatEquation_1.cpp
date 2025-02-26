@@ -7,6 +7,7 @@
 
 // Global variables for grid dimensions and cut coordinates
 int ROWS, COLS, NUM_X_CUTS, NUM_Y_CUTS;
+const double EPS = 1e-2;
 std::vector<float> X_CORDS(0), Y_CORDS(0);
 
 // Structure to represent a block of the grid
@@ -21,6 +22,8 @@ struct BlockOfGrid {
     float dt = 0.1;
     float r_x = alpha * dt/(2 * dx * dx);
     float r_y = alpha * dt/(2 * dy * dy);
+    float tempDiff = 100.0;
+    float maxTempDiff = 100.0;
     std::vector<std::vector<float>> localGrid;
     
     // Constructor with built-in boundary trimming
@@ -35,12 +38,15 @@ struct BlockOfGrid {
 
     void computeNextStateAll(const std::vector<std::vector<float>>& grid) {
         //Computes the next state for all the blocks including the boundary blocks. For boundary blocks, it trims the edges
+        maxTempDiff = 0.0;
         for (int i = std::max(1, xMin); i < std::min(xMax, ROWS - 1); ++i) {
             for (int j = std::max(1, yMin); j < std::min(yMax, COLS -1); ++j) {
-                localGrid[i - xMin][j - yMin] = grid[i][j] + r_x * (grid[i+1][j] - 2*grid[i][j] + grid[i-1][j]) +
-                                                             r_y * (grid[i][j+1] - 2*grid[i][j] + grid[i][j-1]);
+                tempDiff = r_x * (grid[i+1][j] - 2*grid[i][j] + grid[i-1][j]) + r_y * (grid[i][j+1] - 2*grid[i][j] + grid[i][j-1]);
+                localGrid[i - xMin][j - yMin] = grid[i][j] + tempDiff;
+                maxTempDiff = std::max(maxTempDiff, tempDiff);
             }
         }
+        //std::cout << "Maximum temperature difference is " << criterion <<std::endl;
         computeNextStateEdgeCells();
     }
 
@@ -134,6 +140,9 @@ void showGrid(const std::vector<std::vector<float>>& grid) {
 int main(int argc, char* argv[]){
     initializeGrid(argc, argv);
     std::vector<std::vector<float>> mainGrid(ROWS, std::vector<float>(COLS, 0));
+    double stopCriterion = 1.0;
+    double localMax;
+    int step = 0;
 
     // Create blocks of the grid based on the cut coordinates
     std::vector<BlockOfGrid> blocks;
@@ -150,21 +159,27 @@ int main(int argc, char* argv[]){
     }
 
     // Run the Game of Life for 20 generations
-    //#pragma omp parallel for schedule(runtime)
-    for (int step = 0; step < 10000; ++step) {
-        std::cout << "Time step" << step << ":\n";
+    //for (int i = 0; i < 100; ++i){
+    while (stopCriterion > EPS) {  // Fixed stopping condition
+        stopCriterion = 0.0;
+        std::cout << "Time step " << step << ":\n";
         showGrid(mainGrid);
-        
+
         // Compute the next state for each block
-        #pragma omp parallel for schedule(runtime)
+        #pragma omp parallel for schedule(runtime) reduction(max: stopCriterion)
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].computeNextStateAll(mainGrid);
+            stopCriterion = blocks[i].maxTempDiff;
         }
+        //std::cout << "stop criterion is " << stopCriterion << std::endl;
 
-        //#pragma omp parallel for schedule(runtime)
+        // Update the global grid
+        #pragma omp parallel for schedule(runtime)
         for (size_t i = 0; i < blocks.size(); ++i) {
             blocks[i].updateGlobalGrid(mainGrid);
         }
+
+        ++step;
     }
     return 0;
 }
