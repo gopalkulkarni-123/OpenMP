@@ -21,6 +21,13 @@ def read_data(file_path):
             data.append(np.array(current_generation))
     return data
 
+def save_frame(data, frame, filename):
+    plt.imshow(data[frame], cmap='viridis', interpolation='nearest', vmin=0, vmax=100)
+    plt.colorbar()
+    plt.title(f'Heatmap at Time {round(frame*0.1, 3)}s')
+    plt.savefig(filename)
+    plt.close()
+
 def animate_heatmap(data, interval=100):
     fig, ax = plt.subplots()
     cax = ax.imshow(data[0], cmap='viridis', interpolation='nearest', vmin=0, vmax=100)
@@ -29,11 +36,11 @@ def animate_heatmap(data, interval=100):
 
     def update(frame):
         cax.set_array(data[frame])
-        ax.set_title(f'Time {round(frame*0.1, 3)}'+ 's')
+        ax.set_title(f'Time {round(frame*0.1, 3)}s')
         return cax,
 
     ani = animation.FuncAnimation(fig, update, frames=len(data), interval=interval, blit=False, repeat=False)
-    plt.show()
+    ani.save('test_reference.mp4', fps=10)
 
 if __name__ == "__main__":
     file_path = 'test_output.txt'
@@ -43,4 +50,12 @@ if __name__ == "__main__":
     if len(data) > 100:
         data = data[::len(data)//1000]
 
-    animate_heatmap(data, interval=100)  # Set the interval to 2 milliseconds to speed up by 100x
+    # Save specific frames
+    save_frame(data, 0, 'frame_0.png')
+    middle_frame_1 = len(data) // 2
+    middle_frame_2 = middle_frame_1 + 1
+    save_frame(data, middle_frame_1, f'frame_{middle_frame_1}.png')
+    save_frame(data, middle_frame_2, f'frame_{middle_frame_2}.png')
+    save_frame(data, len(data) - 1, f'frame_{len(data) - 1}.png')
+
+    animate_heatmap(data, interval=25)  # Set the interval to 25 milliseconds to speed up by 100x
