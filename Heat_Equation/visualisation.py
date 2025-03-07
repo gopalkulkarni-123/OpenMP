@@ -1,61 +1,81 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.animation as animation
+import gzip
 
-def read_data(file_path):
-    with open(file_path, 'r') as file:
-        data = []
-        current_generation = []
-        for line in file:
-            if line.startswith("Time step"):
-                if current_generation:
-                    data.append(np.array(current_generation))
-                    current_generation = []
-            else:
-                try:
-                    row = list(map(float, line.split()))
-                    current_generation.append(row)
-                except ValueError:
-                    continue
-        if current_generation:
-            data.append(np.array(current_generation))
-    return data
+def read_binary(filename, step_interval=1):
+    frames = []
+    time_steps = []
+    with gzip.open(filename, 'rb') as file:
+        while True:
+            # Read the time step identifier (4 bytes)
+            time_step_data = file.read(4)
+            if not time_step_data:
+                break  # Stop when EOF is reached
 
-def save_frame(data, frame, filename):
-    plt.imshow(data[frame], cmap='viridis', interpolation='nearest', vmin=0, vmax=100)
-    plt.colorbar()
-    plt.title(f'Heatmap at Time {round(frame*0.1, 3)}s')
-    plt.savefig(filename)
-    plt.close()
+            time_step = int.from_bytes(time_step_data, "little")
+            #print(f"Time step: {time_step}")  # Print the time step
 
-def animate_heatmap(data, interval=100):
+            # Read matrix size (rows and cols, each 4 bytes)
+            rows = int.from_bytes(file.read(4), "little")
+            cols = int.from_bytes(file.read(4), "little")
+
+            # Print matrix size for debugging purposes
+            #print(f"Reading matrix with dimensions: {rows} x {cols}")
+
+            # Read the matrix data (rows * cols floats, 4 bytes each)
+            matrix_data = file.read(rows * cols * 4)
+            if len(matrix_data) < rows * cols * 4:
+                print("Error: Not enough data for the matrix values")
+                break
+
+            matrix = np.frombuffer(matrix_data, dtype=np.float32).reshape((rows, cols))
+
+            # Append the matrix and time step to frames and time_steps
+            frames.append(matrix)
+            time_steps.append(time_step)
+
+            # Skip extra time steps if step_interval > 1
+            for _ in range(step_interval - 1):
+                # Skip reading the rest of the data for skipped time steps
+                time_step_data = file.read(4)
+                rows = int.from_bytes(file.read(4), "little")
+                cols = int.from_bytes(file.read(4), "little")
+                file.read(rows * cols * 4)  # Skip matrix data for the skipped time steps
+
+    return frames, time_steps
+
+def animate_heat_simulation(frames, time_steps, interval=50, temp_min=None, temp_max=None):
+    """Animates the heat simulation using Matplotlib."""
     fig, ax = plt.subplots()
-    cax = ax.imshow(data[0], cmap='viridis', interpolation='nearest', vmin=0, vmax=100)
-    fig.colorbar(cax)
-    plt.title('Heatmap Animation of test_reference')
-
-    def update(frame):
-        cax.set_array(data[frame])
-        ax.set_title(f'Time {round(frame*0.1, 3)}s')
+    
+    # Set vmin and vmax for the temperature limits
+    vmin = temp_min if temp_min is not None else np.min(frames)
+    vmax = temp_max if temp_max is not None else np.max(frames)
+    
+    # Display the first frame
+    cax = ax.imshow(frames[0], cmap="inferno", interpolation="nearest", animated=True, vmin=vmin, vmax=vmax)
+    
+    # Add a color bar with the specified temperature limits
+    cbar = plt.colorbar(cax)
+    cbar.set_label('Temperature')  # Set the label for the color bar
+    cbar.set_ticks([vmin, vmax])  # Optionally, set the ticks at
+    
+    def update(frame_index):
+        cax.set_array(frames[frame_index])
+        ax.set_title(f"Time step: {time_steps[frame_index]}")
         return cax,
 
-    ani = animation.FuncAnimation(fig, update, frames=len(data), interval=interval, blit=False, repeat=False)
-    ani.save('test_reference.mp4', fps=10)
+    ani = animation.FuncAnimation(fig, update, frames=len(frames), interval=interval, blit=True)
+    ani.save("heat_simulation_2000.mp4", fps=10)
+    #plt.show()
 
 if __name__ == "__main__":
-    file_path = 'test_output.txt'
-    data = read_data(file_path)
-
-    # Sample 100 data points evenly from the data
-    if len(data) > 100:
-        data = data[::len(data)//1000]
-
-    # Save specific frames
-    save_frame(data, 0, 'Results/frame_0.png')
-    middle_frame_1 = len(data) // 2
-    middle_frame_2 = middle_frame_1 + 1
-    save_frame(data, middle_frame_1, f'Results/frame_{middle_frame_1}.png')
-    save_frame(data, middle_frame_2, f'Results/frame_{middle_frame_2}.png')
-    save_frame(data, len(data) - 1, f'Results/frame_{len(data) - 1}.png')
-
-    animate_heatmap(data, interval=25)  # Set the interval to 25 milliseconds to speed up by 100x
+    filename = "Results/experiment_2000.gz"  # Change this to the path of your binary file
+    frames, time_steps = read_binary(filename)
+    
+    # Set your desired temperature limits (min, max) here
+    temp_min = 0.0  # Example: minimum temperature
+    temp_max = 100.0  # Example: maximum temperature
+    
+    animate_heat_simulation(frames, time_steps, interval=50, temp_min=temp_min, temp_max=temp_max)

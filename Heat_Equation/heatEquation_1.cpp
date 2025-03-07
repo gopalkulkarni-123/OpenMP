@@ -4,19 +4,23 @@
 #include <omp.h>
 #include <math.h>
 #include <iomanip>
+#include <fstream>
+#include <zlib.h>
+#include <string>
 
 // Global variables for grid dimensions and cut coordinates
 int ROWS, COLS, NUM_X_CUTS, NUM_Y_CUTS;
-const double EPS = 1e-2;
+const double EPS = 1e-3;
 std::vector<float> X_CORDS(0), Y_CORDS(0);
 
 // Structure to represent a block of the grid
 struct BlockOfGrid {
+    
     int xMin;
     int xMax;
     int yMin;
     int yMax;
-    float alpha = 0.2;
+    float alpha = 0.75;
     float dx = 1.0;
     float dy = 1.0;
     float dt = 0.1;
@@ -46,7 +50,9 @@ struct BlockOfGrid {
                 maxTempDiff = std::max(maxTempDiff, tempDiff);
             }
         }
-        //std::cout << "Maximum temperature difference is " << criterion <<std::endl;
+        //std::cout << "Maximum temperature difference is " << maxTempDiff <<std::endl;
+        //std::cout << "temperature difference is " << tempDiff <<std::endl;
+        //std::cout << "Maximum temperature difference is " << maxTempDiff <<std::endl;
         computeNextStateEdgeCells();
     }
 
@@ -69,12 +75,12 @@ struct BlockOfGrid {
         }
         if (yMin == 0) {  // Left boundary
             for (int i = xMin; i < xMax; ++i) {
-                localGrid[i - xMin][0] = 0; // Accessing the left column of localGrid
+                localGrid[i - xMin][0] = 100; // Accessing the left column of localGrid
             }
         }
         if (yMax == COLS) {  // Right boundary
             for (int i = xMin; i < xMax; ++i) {
-                localGrid[i - xMin][yMax - yMin - 1] = 0; // Accessing the right column of localGrid
+                localGrid[i - xMin][yMax - yMin - 1] = 100; // Accessing the right column of localGrid
             }
         }
     }
@@ -137,6 +143,27 @@ void showGrid(const std::vector<std::vector<float>>& grid) {
     std::cout << "----------------\n";
 }
 
+void saveCompressed(const std::vector<std::vector<float>>& matrix, int timeStep, const std::string& filename) {
+    gzFile file = gzopen(filename.c_str(), "ab"); // Open in append mode
+    if (!file) return;
+
+    int rows = matrix.size(), cols = matrix[0].size();
+
+    // Write the time step
+    gzwrite(file, &timeStep, sizeof(int));
+
+    // Write matrix dimensions
+    gzwrite(file, &rows, sizeof(int));
+    gzwrite(file, &cols, sizeof(int));
+
+    // Write matrix data
+    for (const auto& row : matrix) {
+        gzwrite(file, row.data(), cols * sizeof(float));
+    }
+
+    gzclose(file);
+}
+
 int main(int argc, char* argv[]){
     initializeGrid(argc, argv);
     std::vector<std::vector<float>> mainGrid(ROWS, std::vector<float>(COLS, 0));
@@ -152,19 +179,24 @@ int main(int argc, char* argv[]){
         }
     }
 
-    for(int i=25;i<35;i++){
-        for(int j=25;j<35;j++){
+    /*for(int i=250;i<350;i++){
+        for(int j=250;j<350;j++){
             mainGrid[i][j] = 50;
         }
-    }
+    }*/
 
-    // Run the Game of Life for 20 generations
     //for (int i = 0; i < 100; ++i){
-    while (stopCriterion > EPS) {  // Fixed stopping condition
+    //while (stopCriterion > EPS) {  // Fixed stopping condition
+    do{
         stopCriterion = 0.0;
-        std::cout << "Time step " << step << ":\n";
-        showGrid(mainGrid);
-
+        //std::cout << "Time step " << step << ":\n";
+        //showGrid(mainGrid);
+        if(step%100 == 0){
+            //std::cout << "Time step " << step << ":\n";
+            //showGrid(mainGrid);
+            //std::cout << mainGrid.size() << "X" << mainGrid[0].size() << std::endl;
+            saveCompressed(mainGrid, step, "Results/trial.gz");
+            }
         // Compute the next state for each block
         #pragma omp parallel for schedule(runtime) reduction(max: stopCriterion)
         for (size_t i = 0; i < blocks.size(); ++i) {
@@ -180,6 +212,6 @@ int main(int argc, char* argv[]){
         }
 
         ++step;
-    }
+    }while (stopCriterion > EPS || step <= 5);
     return 0;
 }
