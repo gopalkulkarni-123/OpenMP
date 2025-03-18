@@ -45,7 +45,7 @@ struct BlockOfGrid {
         //Computes the next state for all the blocks including the boundary blocks. For boundary blocks, it trims the edges
         maxTempDiff = 0.0;
         //Use OMP here rather than main
-        #pragma omp parallel for schedule(runtime)
+        #pragma omp parallel for schedule(runtime) reduction(max:maxTempDiff)
         for (int i = std::max(1, xMin); i < std::min(xMax, ROWS - 1); ++i) {
             for (int j = std::max(1, yMin); j < std::min(yMax, COLS -1); ++j) {
                 tempDiff = r_x * (grid[i+1][j] - 2*grid[i][j] + grid[i-1][j]) + r_y * (grid[i][j+1] - 2*grid[i][j] + grid[i][j-1]);
@@ -78,12 +78,12 @@ struct BlockOfGrid {
         }
         if (yMin == 0) {  // Left boundary
             for (int i = xMin; i < xMax; ++i) {
-                localGrid[i - xMin][0] = 100; // Accessing the left column of localGrid
+                localGrid[i - xMin][0] = 0; // Accessing the left column of localGrid
             }
         }
         if (yMax == COLS) {  // Right boundary
             for (int i = xMin; i < xMax; ++i) {
-                localGrid[i - xMin][yMax - yMin - 1] = 100; // Accessing the right column of localGrid
+                localGrid[i - xMin][yMax - yMin - 1] = 0; // Accessing the right column of localGrid
             }
         }
     }
@@ -188,8 +188,8 @@ int main(int argc, char* argv[]){
     auto start = std::chrono::high_resolution_clock::now();
     do{
         stopCriterion = 0.0;
-        std::cout << "Time step " << step << ":\n";
-        showGrid(mainGrid);
+        //std::cout << "Time step " << step << ":\n";
+        //showGrid(mainGrid);
 
         // Compute the next state for each block
         //#pragma omp parallel for schedule(runtime) reduction(max: stopCriterion)
@@ -205,7 +205,7 @@ int main(int argc, char* argv[]){
             blocks[i].updateGlobalGrid(mainGrid);
         }
 
-        if(step%100 == 0){
+        if(step%1000 == 0){
             //std::cout << "Time step " << step << ":\n";
             //showGrid(mainGrid);
             //std::cout << mainGrid.size() << "X" << mainGrid[0].size() << std::endl;
@@ -214,9 +214,10 @@ int main(int argc, char* argv[]){
             }
     
         ++step;
-    }while (stopCriterion > EPS || step <= 5);
+    }while (abs(stopCriterion) > EPS || step <= 5);
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    //std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
+    std::cout << "Delta :" << stopCriterion << std::endl;
+    std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
     return 0;
 }
