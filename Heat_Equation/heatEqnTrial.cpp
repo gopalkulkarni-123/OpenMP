@@ -216,6 +216,7 @@ int main(int argc, char* argv[]){
         ++step;
     }while (abs(stopCriterion) > EPS || step <= 5);
     auto end = std::chrono::high_resolution_clock::now();
+    saveCSVFile(mainGrid, step-1, stopCriterion, FILE_NAME);
     std::chrono::duration<double> elapsed = end - start;
     std::cout << "Delta :" << stopCriterion << std::endl;
     std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
