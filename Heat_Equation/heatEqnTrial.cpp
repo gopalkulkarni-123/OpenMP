@@ -5,7 +5,6 @@
 #include <math.h>
 #include <iomanip>
 #include <fstream>
-#include <zlib.h>
 #include <string>
 #include <chrono>
 
@@ -46,7 +45,7 @@ struct BlockOfGrid {
         //Computes the next state for all the blocks including the boundary blocks. For boundary blocks, it trims the edges
         maxTempDiff = 0.0;
         //Use OMP here rather than main
-        #pragma omp parallel for schedule(runtime) collapse(2)
+        #pragma omp parallel for schedule(runtime)
         for (int i = std::max(1, xMin); i < std::min(xMax, ROWS - 1); ++i) {
             for (int j = std::max(1, yMin); j < std::min(yMax, COLS -1); ++j) {
                 tempDiff = r_x * (grid[i+1][j] - 2*grid[i][j] + grid[i-1][j]) + r_y * (grid[i][j+1] - 2*grid[i][j] + grid[i][j-1]);
@@ -149,28 +148,6 @@ void showGrid(const std::vector<std::vector<float>>& grid) {
     }
     std::cout << "----------------\n";
 }
-
-void saveCompressed(const std::vector<std::vector<float>>& matrix, int timeStep, const std::string& filename) {
-    gzFile file = gzopen(filename.c_str(), "ab"); // Open in append mode
-    if (!file) return;
-
-    int rows = matrix.size(), cols = matrix[0].size();
-
-    // Write the time step
-    gzwrite(file, &timeStep, sizeof(int));
-
-    // Write matrix dimensions
-    gzwrite(file, &rows, sizeof(int));
-    gzwrite(file, &cols, sizeof(int));
-
-    // Write matrix data
-    for (const auto& row : matrix) {
-        gzwrite(file, row.data(), cols * sizeof(float));
-    }
-
-    gzclose(file);
-}
-
 
 void saveCSVFile(const std::vector<std::vector<float>>& matrix, int timeStep, float delta,const std::string& filename){
     std::ofstream file(filename + "_" + std::to_string(timeStep) +".csv");

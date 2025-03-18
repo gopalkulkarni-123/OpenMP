@@ -72,7 +72,7 @@ struct BlockOfGrid {
         if (xMin == 0) {  // Top boundary
             for (int j = yMin; j < yMax; ++j) {
                 for (int k = zMin; k < zMax; ++k){
-                    localGrid[0][j - yMin][k - zMin] = 100; // Accessing the top row of localGrid
+                    localGrid[0][j - yMin][k - zMin] = 0; // Accessing the top row of localGrid
                 }
             }
         }
@@ -80,7 +80,7 @@ struct BlockOfGrid {
         if (xMax == ROWS) {  // Bottom boundary
             for (int j = yMin; j < yMax; ++j) {
                 for (int k = zMin; k < zMax; ++k){
-                    localGrid[xMax - xMin - 1][j - yMin][k - zMin] = 100; // Accessing the bottom row of localGrid
+                    localGrid[xMax - xMin - 1][j - yMin][k - zMin] = 0; // Accessing the bottom row of localGrid
                 }
             }
         }
@@ -88,7 +88,7 @@ struct BlockOfGrid {
         if (yMin == 0) {  // Left boundary
             for (int i = xMin; i < xMax; ++i) {
                 for (int k = zMin; k < zMax; ++k){
-                    localGrid[i - xMin][0][k - zMin] = 100; // Accessing the left column of localGrid
+                    localGrid[i - xMin][0][k - zMin] = 0; // Accessing the left column of localGrid
                 }
             }
         }
@@ -96,7 +96,7 @@ struct BlockOfGrid {
         if (yMax == COLS) {  // Right boundary
             for (int i = xMin; i < xMax; ++i) {
                 for (int k = zMin; k < zMax; ++k){
-                    localGrid[i - xMin][yMax - yMin - 1][k - zMin] = 100; // Accessing the right column of localGrid
+                    localGrid[i - xMin][yMax - yMin - 1][k - zMin] = 0; // Accessing the right column of localGrid
                 }
             }
         }
@@ -104,7 +104,7 @@ struct BlockOfGrid {
         if (zMin == 0) {  // Left boundary
             for (int i = xMin; i < xMax; ++i) {
                 for (int j = yMin; j < yMax; ++j){
-                    localGrid[i - xMin][j - yMin][0] = 100; // Accessing the left column of localGrid
+                    localGrid[i - xMin][j - yMin][0] = 0; // Accessing the left column of localGrid
                 }
             }
         }
@@ -112,10 +112,29 @@ struct BlockOfGrid {
         if (zMax == WIDTH) {  // Right boundary
             for (int i = xMin; i < xMax; ++i) {
                 for (int j = yMin; j < yMax; ++j){
-                    localGrid[i - xMin][j - yMin][zMax - zMin - 1] = 100; // Accessing the right column of localGrid
+                    localGrid[i - xMin][j - yMin][zMax - zMin - 1] = 0; // Accessing the right column of localGrid
                 }
             }
         }
+
+        for(int i=10;i<40;i++){
+            for(int j=10;j<40;j++){
+    
+                //Z plane initialization
+                localGrid[i][j][0] = 200;
+                localGrid[i][j][WIDTH - 1] = 200;
+    
+                //Y plane Initialization
+                localGrid[i][0][j] = 200;
+                localGrid[i][COLS - 1][j] = 200;
+    
+                //X Plane initialization
+                localGrid[0][j][i] = 200;
+                localGrid[ROWS - 1][j][i] = 200;
+    
+            }
+        }
+
     }
           
     // Function to update the global grid with the current block's state
@@ -239,6 +258,7 @@ int main(int argc, char* argv[]){
         if(step%10 == 0){
             //saveCompressed(mainGrid, step, FILE_NAME);
             saveCSVFile(mainGrid, step, FILE_NAME);
+            std::cout << "Delta at " << step << "is" << stopCriterion;
             }
 
         // Compute the next state for each block
@@ -259,7 +279,8 @@ int main(int argc, char* argv[]){
 
     auto end = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = end - start;
-    //std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
-    
+    std::cout << "Elapsed time: " << elapsed.count() << " seconds" << std::endl;
+    std::cout << "Delta at convergence" << stopCriterion;
+
     return 0;
 }
