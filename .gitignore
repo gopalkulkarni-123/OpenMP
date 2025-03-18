@@ -2,4 +2,5 @@ Heat_Equation/test_reference.txt
 Heat_Equation/test_output.txt
 myenv/
 Results/
+Heat_Equation/.vscode/
 
